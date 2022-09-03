@@ -23,7 +23,7 @@ colnames(dados_economatica) <- c("Código", "valor de mercado", "valor patrimoni
 #Juntando os dados do ibov e do economatica
 base_fatores <- merge(dados_ibov, dados_economatica, by = "Código")
 
-base_fatores <- base_fatores[1:50,]
+
 
 #Baixando os preços historicos dos ativos do yahoo finance
 
@@ -31,7 +31,7 @@ tickers <- base_fatores$`Código com SA`
 
 preco_ativos <- xts()
 for (i in 1:length(tickers)){
-  preco_ativo <- getSymbols(tickers[i], auto.assign = F, from = "2015-01-01")[,6]
+  preco_ativo <- getSymbols(tickers[i], auto.assign = F, from = "2020-01-01")[,6]
   preco_ativos <- merge(preco_ativos,preco_ativo)
 }
 
@@ -44,26 +44,30 @@ View(retorno)
 
 #Indice de mercado
 
-indice <- t(t(base_fatores[,2]) %*% t(retorno))/sum(base_fatores[,2])
-colnames(indice) <- c('indice')
+mkt <- xts(x = (t(t(base_fatores[,2]) %*% t(retorno))/sum(base_fatores[,2])),
+              order.by = index(retorno))
+colnames(mkt) <- c('Retornos')
 
+mkt$`Retorno Acumulado` <- cumprod(1+mkt$Retornos)
+
+plot(mkt$`Retorno Acumulado`)
 
 # SMB
 
-percentil <-1/3 
-n <- nrow(base_fatores)
+percentil_smb <-1/3 
+n.tickers <- nrow(base_fatores)
 
-corte <-  round(n*percentil)
+corte_smb <-  round(n.tickers*percentil_smb)
 
 small <- base_fatores %>%
-  filter(`valor de mercado`<=sort(base_fatores$`valor de mercado`)[corte]) %>% 
+  filter(`valor de mercado`<=sort(base_fatores$`valor de mercado`)[corte_smb]) %>% 
   select("Código")
 small.tickers <- small$Código
   
 
 
 big <- base_fatores %>%
-  filter(`valor de mercado`>=sort(base_fatores$`valor patrimonial`)[n - corte]) %>% 
+  filter(`valor de mercado`>=sort(base_fatores$`valor patrimonial`)[n.tickers - corte_smb]) %>% 
   select("Código")
 big.tickers <- big$Código
 
@@ -93,9 +97,7 @@ base_fatores$`Book to Market` <- as.numeric(base_fatores$`valor patrimonial`)/
 
 percentil_hml <-1/3 
 
-corte_hml <-  round(n*percentil_hml)
-
-base_fatores$`Book to Market`
+corte_hml <-  round(n.tickers*percentil_hml)
 
 low <- base_fatores %>%
   filter(`Book to Market`<=sort(base_fatores$`Book to Market`)[corte_hml]) %>% 
@@ -104,9 +106,8 @@ low <- base_fatores %>%
 low.tickers <- low$Código
 
 
-
 high <- base_fatores %>%
-  filter(`Book to Market`>=sort(base_fatores$`Book to Market`)[n - corte_hml]) %>% 
+  filter(`Book to Market`>=sort(base_fatores$`Book to Market`)[n.tickers - corte_hml]) %>% 
   select("Código")
 
 high.tickers <- high$Código
@@ -128,6 +129,12 @@ hml$`Retorno Acumulado` <-  cumprod(1+hml$Retornos)
 plot(hml$`Retorno Acumulado`)
 
 #Indice retornos
+
+returns_factors <- merge(mkt$Retornos,smb$Retornos ,hml$Retornos)
+
+cum.return_factors <- merge(mkt$`Retorno Acumulado`,smb$`Retorno Acumulado` ,hml$`Retorno Acumulado`)
+
+plot(cum.return_factors)
 
 
 
